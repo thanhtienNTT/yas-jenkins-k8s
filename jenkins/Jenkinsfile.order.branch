@@ -1,0 +1,59 @@
+pipeline {
+    agent { label 'build' }
+
+    environment {
+        DOCKERHUB_USER = 'thanhtienntt'
+        DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
+        SERVICE_NAME = 'order'
+    }
+
+    stages {
+        stage('Checkout dev branch') {
+            steps {
+                checkout scm
+                sh 'git branch --show-current || true'
+            }
+        }
+
+        stage('Get commit SHA') {
+            steps {
+                script {
+                    env.SHORT_SHA = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                    echo "SHORT_SHA=${env.SHORT_SHA}"
+                }
+            }
+        }
+
+        stage('Build service with dependencies') {
+            steps {
+                sh 'chmod +x mvnw || true'
+                sh './mvnw -B clean install -pl order -am -DskipTests || mvn -B clean install -pl order -am -DskipTests'
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                dir('order') {
+                    sh "docker build -t ${DOCKERHUB_USER}/${SERVICE_NAME}:${env.SHORT_SHA} ."
+                }
+            }
+        }
+
+        stage('Push Docker image') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKER_CREDENTIALS_ID}",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    sh "docker push ${DOCKERHUB_USER}/${SERVICE_NAME}:${env.SHORT_SHA}"
+                }
+            }
+            
+        }
+    }
+}
