@@ -7,6 +7,7 @@ pipeline {
         SERVICE_NAME = 'order'
     }
 
+
     stages {
         stage('Checkout SCM') {
             steps {
@@ -43,6 +44,7 @@ pipeline {
                 sh './mvnw -B clean install -pl order -am -DskipTests || mvn -B clean install -pl order -am -DskipTests'
             }
         }
+
 
         stage('Build Docker image') {
             steps {
