@@ -2,7 +2,7 @@ pipeline {
     agent { label 'build' }
 
     environment {
-        DOCKERHUB_USER = 'trngnneee'
+        DOCKERHUB_USER = 'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
         SERVICE_NAME = 'order'
     }
@@ -39,9 +39,8 @@ pipeline {
 
         stage('Build service with dependencies') {
             steps {
-                sh 'chmod +x order/mvnw || true' 
-                
-                sh './order/mvnw -B clean install -pl order -am -DskipTests'
+                sh 'chmod +x mvnw || true'
+                sh './mvnw -B clean install -pl order -am -DskipTests || mvn -B clean install -pl order -am -DskipTests'
             }
         }
 
