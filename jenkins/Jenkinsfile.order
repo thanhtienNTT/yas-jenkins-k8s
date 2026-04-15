@@ -41,7 +41,7 @@ pipeline {
             steps {
                 dir('order') {
                     sh 'chmod +x mvnw || true'
-                    sh './mvnw -B clean install -pl order -am -DskipTests || mvn -B clean install -pl order -am -DskipTests'
+                    sh './mvnw -B clean install -DskipTests'
                 }
             }
         }
