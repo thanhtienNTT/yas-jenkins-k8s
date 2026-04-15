@@ -39,10 +39,9 @@ pipeline {
 
         stage('Build service with dependencies') {
             steps {
-                dir('order') {
-                    sh 'chmod +x mvnw || true'
-                    sh './mvnw -B clean install -DskipTests'
-                }
+                sh 'chmod +x order/mvnw || true' 
+                
+                sh './order/mvnw -B clean install -pl order -am -DskipTests'
             }
         }
 
