@@ -1,6 +1,10 @@
 pipeline {
     agent { label 'build' }
 
+    options {
+        timestamps()
+    }
+
     environment {
         DOCKERHUB_USER = 'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
@@ -8,21 +12,13 @@ pipeline {
     }
 
     stages {
-        stage('Checkout SCM') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Detect branch and tag') {
             steps {
                 script {
-                    env.BRANCH_NAME = sh(
-                        script: 'git rev-parse --abbrev-ref HEAD',
-                        returnStdout: true
-                    ).trim()
+                    def gitBranch = env.GIT_BRANCH ?: ''
+                    echo "GIT_BRANCH=${gitBranch}"
 
-                    if (env.BRANCH_NAME == 'main') {
+                    if (gitBranch == 'origin/main' || gitBranch == 'main' || gitBranch.endsWith('/main')) {
                         env.IMAGE_TAG = 'main'
                     } else {
                         env.IMAGE_TAG = sh(
@@ -31,7 +27,6 @@ pipeline {
                         ).trim()
                     }
 
-                    echo "BRANCH_NAME=${env.BRANCH_NAME}"
                     echo "IMAGE_TAG=${env.IMAGE_TAG}"
                 }
             }
@@ -39,8 +34,7 @@ pipeline {
 
         stage('Build service with dependencies') {
             steps {
-                sh 'chmod +x mvnw || true'
-                sh './mvnw -B clean install -pl order -am -DskipTests || mvn -B clean install -pl order -am -DskipTests'
+                sh 'mvn -B clean install -pl order -am -DskipTests'
             }
         }
 
@@ -63,6 +57,15 @@ pipeline {
                     sh "docker push ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG}"
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Pushed image: ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG}"
+        }
+        failure {
+            echo "Build failed for branch: ${env.GIT_BRANCH}"
         }
     }
 }
