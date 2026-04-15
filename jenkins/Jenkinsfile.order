@@ -8,21 +8,31 @@ pipeline {
     }
 
     stages {
-        stage('Checkout dev branch') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
-                sh 'git branch --show-current || true'
             }
         }
 
-        stage('Get commit SHA') {
+        stage('Detect branch and tag') {
             steps {
                 script {
-                    env.SHORT_SHA = sh(
-                        script: 'git rev-parse --short HEAD',
+                    env.BRANCH_NAME = sh(
+                        script: 'git rev-parse --abbrev-ref HEAD',
                         returnStdout: true
                     ).trim()
-                    echo "SHORT_SHA=${env.SHORT_SHA}"
+
+                    if (env.BRANCH_NAME == 'main') {
+                        env.IMAGE_TAG = 'main'
+                    } else {
+                        env.IMAGE_TAG = sh(
+                            script: 'git rev-parse --short HEAD',
+                            returnStdout: true
+                        ).trim()
+                    }
+
+                    echo "BRANCH_NAME=${env.BRANCH_NAME}"
+                    echo "IMAGE_TAG=${env.IMAGE_TAG}"
                 }
             }
         }
@@ -37,7 +47,7 @@ pipeline {
         stage('Build Docker image') {
             steps {
                 dir('order') {
-                    sh "docker build -t ${DOCKERHUB_USER}/${SERVICE_NAME}:${env.SHORT_SHA} ."
+                    sh "docker build -t ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG} ."
                 }
             }
         }
@@ -50,7 +60,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh "docker push ${DOCKERHUB_USER}/${SERVICE_NAME}:${env.SHORT_SHA}"
+                    sh "docker push ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG}"
                 }
             }
         }
