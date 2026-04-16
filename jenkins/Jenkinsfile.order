@@ -3,45 +3,65 @@ pipeline {
 
     options {
         timestamps()
+        disableConcurrentBuilds()
     }
 
     environment {
-        DOCKERHUB_USER = 'thanhtienntt'
+        DOCKERHUB_USER        = 'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
-        SERVICE_NAME = 'order'
+        SERVICE_NAME          = 'order'
+        IMAGE_REPO            = "${DOCKERHUB_USER}/${SERVICE_NAME}"
     }
 
     stages {
-        stage('Detect branch and tag') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Detect branch and commit tag') {
             steps {
                 script {
-                    def gitBranch = env.GIT_BRANCH ?: ''
-                    echo "GIT_BRANCH=${gitBranch}"
+                    env.BRANCH_NAME_RESOLVED = env.BRANCH_NAME ?: env.GIT_BRANCH ?: sh(
+                        script: 'git rev-parse --abbrev-ref HEAD',
+                        returnStdout: true
+                    ).trim()
 
-                    if (gitBranch == 'origin/main' || gitBranch == 'main' || gitBranch.endsWith('/main')) {
-                        env.IMAGE_TAG = 'main'
-                    } else {
-                        env.IMAGE_TAG = sh(
-                            script: 'git rev-parse --short HEAD',
-                            returnStdout: true
-                        ).trim()
-                    }
+                    env.GIT_SHA = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
 
-                    echo "IMAGE_TAG=${env.IMAGE_TAG}"
+                    env.IS_MAIN = (
+                        env.BRANCH_NAME_RESOLVED == 'main' ||
+                        env.BRANCH_NAME_RESOLVED == 'origin/main' ||
+                        env.BRANCH_NAME_RESOLVED.endsWith('/main')
+                    ).toString()
+
+                    echo "BRANCH=${env.BRANCH_NAME_RESOLVED}"
+                    echo "GIT_SHA=${env.GIT_SHA}"
+                    echo "IS_MAIN=${env.IS_MAIN}"
                 }
             }
         }
 
         stage('Build service with dependencies') {
             steps {
-                sh 'mvn -B clean install -pl order -am -DskipTests'
+                sh 'mvn -B clean package -pl order -am -DskipTests'
             }
         }
 
         stage('Build Docker image') {
             steps {
                 dir('order') {
-                    sh "docker build -t ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG} ."
+                    sh "docker build -t ${IMAGE_REPO}:${GIT_SHA} ."
+
+                    script {
+                        if (env.IS_MAIN.toBoolean()) {
+                            sh "docker tag ${IMAGE_REPO}:${GIT_SHA} ${IMAGE_REPO}:main"
+                        }
+                    }
                 }
             }
         }
@@ -54,7 +74,15 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh "docker push ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${IMAGE_REPO}:${GIT_SHA}"
+
+                    script {
+                        if (env.IS_MAIN.toBoolean()) {
+                            sh "docker push ${IMAGE_REPO}:main"
+                        }
+                    }
+
+                    sh 'docker logout || true'
                 }
             }
         }
@@ -62,10 +90,16 @@ pipeline {
 
     post {
         success {
-            echo "Pushed image: ${DOCKERHUB_USER}/${SERVICE_NAME}:${IMAGE_TAG}"
+            echo "Pushed image: ${IMAGE_REPO}:${GIT_SHA}" +
+                 (env.IS_MAIN?.toBoolean() ? " and ${IMAGE_REPO}:main" : "")
         }
         failure {
-            echo "Build failed for branch: ${env.GIT_BRANCH}"
+            echo "Build failed for branch: ${env.BRANCH_NAME_RESOLVED}"
+        }
+        always {
+            sh "docker image rm -f ${IMAGE_REPO}:${GIT_SHA} || true"
+            sh "docker image rm -f ${IMAGE_REPO}:main || true"
+            cleanWs()
         }
     }
 }
