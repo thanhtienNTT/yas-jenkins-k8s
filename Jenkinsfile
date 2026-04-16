@@ -37,9 +37,12 @@ pipeline {
                         env.BRANCH_NAME_RESOLVED.endsWith('/main')
                     ).toString()
 
+                    env.IMAGE_TAG = env.IS_MAIN.toBoolean() ? 'latest' : env.GIT_SHA
+
                     echo "BRANCH=${env.BRANCH_NAME_RESOLVED}"
                     echo "GIT_SHA=${env.GIT_SHA}"
                     echo "IS_MAIN=${env.IS_MAIN}"
+                    echo "IMAGE_TAG=${env.IMAGE_TAG}"
                 }
             }
         }
@@ -47,17 +50,10 @@ pipeline {
         stage('Build and Push Services') {
             steps {
                 script {
-                    // SỬA danh sách này đúng theo repo của bạn
                     def services = [
                         'order',
                         'tax',
-                        'cart',
-                        'product',
-                        'customer',
-                        'inventory',
-                        'location',
-                        'rating',
-                        'search'
+                        'cart'
                     ]
 
                     withCredentials([usernamePassword(
@@ -73,17 +69,8 @@ pipeline {
                             sh "mvn -B clean package -pl ${svc} -am -DskipTests"
 
                             dir("${svc}") {
-                                sh "docker build -t ${DOCKERHUB_USER}/${svc}:${GIT_SHA} ."
-
-                                if (env.IS_MAIN.toBoolean()) {
-                                    sh "docker tag ${DOCKERHUB_USER}/${svc}:${GIT_SHA} ${DOCKERHUB_USER}/${svc}:main"
-                                }
-
-                                sh "docker push ${DOCKERHUB_USER}/${svc}:${GIT_SHA}"
-
-                                if (env.IS_MAIN.toBoolean()) {
-                                    sh "docker push ${DOCKERHUB_USER}/${svc}:main"
-                                }
+                                sh "docker build -t ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG} ."
+                                sh "docker push ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG}"
                             }
                         }
 
@@ -96,7 +83,7 @@ pipeline {
 
     post {
         success {
-            echo "Build and push completed for branch ${env.BRANCH_NAME_RESOLVED} with tag ${env.GIT_SHA}"
+            echo "Build and push completed for branch ${env.BRANCH_NAME_RESOLVED} with tag ${env.IMAGE_TAG}"
         }
         failure {
             echo "Build failed for branch ${env.BRANCH_NAME_RESOLVED}"
@@ -106,18 +93,11 @@ pipeline {
                 def services = [
                     'order',
                     'tax',
-                    'cart',
-                    'product',
-                    'customer',
-                    'inventory',
-                    'location',
-                    'rating',
-                    'search'
+                    'cart'
                 ]
 
                 services.each { svc ->
-                    sh "docker image rm -f ${DOCKERHUB_USER}/${svc}:${GIT_SHA} || true"
-                    sh "docker image rm -f ${DOCKERHUB_USER}/${svc}:main || true"
+                    sh "docker image rm -f ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG} || true"
                 }
             }
             cleanWs()
