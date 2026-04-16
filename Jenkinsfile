@@ -10,7 +10,6 @@ pipeline {
         DOCKERHUB_USER        = 'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
     }
-
     stages {
         stage('Checkout') {
             steps {
