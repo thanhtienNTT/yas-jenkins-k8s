@@ -9,6 +9,7 @@ pipeline {
     environment {
         DOCKERHUB_USER        = 'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
+        ALL_SERVICES          = 'order,tax,cart'
     }
 
     stages {
@@ -50,11 +51,24 @@ pipeline {
         stage('Build and Push Services') {
             steps {
                 script {
-                    def services = [
-                        'order',
-                        'tax',
-                        'cart'
-                    ]
+                    def allServices = env.ALL_SERVICES.split(',') as List
+                    def servicesToBuild = []
+
+                    if (env.IS_MAIN.toBoolean()) {
+                        servicesToBuild = allServices
+                    } else {
+                        def branchService = env.BRANCH_NAME_RESOLVED
+                            .replaceFirst(/^dev_/, '')
+                            .replaceFirst(/_service$/, '')
+
+                        if (allServices.contains(branchService)) {
+                            servicesToBuild = [branchService]
+                        } else {
+                            error "Cannot determine service from branch name: ${env.BRANCH_NAME_RESOLVED}"
+                        }
+                    }
+
+                    echo "SERVICES_TO_BUILD=${servicesToBuild.join(',')}"
 
                     withCredentials([usernamePassword(
                         credentialsId: "${DOCKER_CREDENTIALS_ID}",
@@ -63,7 +77,7 @@ pipeline {
                     )]) {
                         sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
 
-                        services.each { svc ->
+                        servicesToBuild.each { svc ->
                             echo "===== BUILD SERVICE: ${svc} ====="
 
                             sh "mvn -B clean package -pl ${svc} -am -DskipTests"
@@ -90,13 +104,22 @@ pipeline {
         }
         always {
             script {
-                def services = [
-                    'order',
-                    'tax',
-                    'cart'
-                ]
+                def allServices = env.ALL_SERVICES.split(',') as List
+                def servicesToClean = []
 
-                services.each { svc ->
+                if (env.IS_MAIN.toBoolean()) {
+                    servicesToClean = allServices
+                } else {
+                    def branchService = env.BRANCH_NAME_RESOLVED
+                        .replaceFirst(/^dev_/, '')
+                        .replaceFirst(/_service$/, '')
+
+                    if (allServices.contains(branchService)) {
+                        servicesToClean = [branchService]
+                    }
+                }
+
+                servicesToClean.each { svc ->
                     sh "docker image rm -f ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG} || true"
                 }
             }
