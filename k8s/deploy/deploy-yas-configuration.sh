@@ -1,4 +1,4 @@
-
+#!/bin/bash
 set -x
 
 # Auto restart when change configmap or secret
