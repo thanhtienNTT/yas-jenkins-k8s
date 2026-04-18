@@ -27,20 +27,21 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
+                    env.BRANCH_NAME_NORMALIZED = env.BRANCH_NAME_RESOLVED
+                        .replaceFirst(/^origin\//, '')
+                        .replaceFirst(/^refs\/heads\//, '')
+
                     env.GIT_SHA = sh(
                         script: 'git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
 
-                    env.IS_MAIN = (
-                        env.BRANCH_NAME_RESOLVED == 'main' ||
-                        env.BRANCH_NAME_RESOLVED == 'origin/main' ||
-                        env.BRANCH_NAME_RESOLVED.endsWith('/main')
-                    ).toString()
+                    env.IS_MAIN = (env.BRANCH_NAME_NORMALIZED == 'main').toString()
 
                     env.IMAGE_TAG = env.IS_MAIN.toBoolean() ? 'latest' : env.GIT_SHA
 
                     echo "BRANCH=${env.BRANCH_NAME_RESOLVED}"
+                    echo "BRANCH_NORMALIZED=${env.BRANCH_NAME_NORMALIZED}"
                     echo "GIT_SHA=${env.GIT_SHA}"
                     echo "IS_MAIN=${env.IS_MAIN}"
                     echo "IMAGE_TAG=${env.IMAGE_TAG}"
@@ -57,14 +58,15 @@ pipeline {
                     if (env.IS_MAIN.toBoolean()) {
                         servicesToBuild = allServices
                     } else {
-                        def branchService = env.BRANCH_NAME_RESOLVED
+                        def normalizedBranch = env.BRANCH_NAME_NORMALIZED ?: env.BRANCH_NAME_RESOLVED
+                        def branchService = normalizedBranch
                             .replaceFirst(/^dev_/, '')
                             .replaceFirst(/_service$/, '')
 
                         if (allServices.contains(branchService)) {
                             servicesToBuild = [branchService]
                         } else {
-                            error "Cannot determine service from branch name: ${env.BRANCH_NAME_RESOLVED}"
+                            error "Cannot determine service from branch name: ${env.BRANCH_NAME_RESOLVED} (normalized: ${normalizedBranch})"
                         }
                     }
 
@@ -110,7 +112,10 @@ pipeline {
                 if (env.IS_MAIN.toBoolean()) {
                     servicesToClean = allServices
                 } else {
-                    def branchService = env.BRANCH_NAME_RESOLVED
+                    def normalizedBranch = (env.BRANCH_NAME_NORMALIZED ?: env.BRANCH_NAME_RESOLVED ?: '')
+                        .replaceFirst(/^origin\//, '')
+                        .replaceFirst(/^refs\/heads\//, '')
+                    def branchService = normalizedBranch
                         .replaceFirst(/^dev_/, '')
                         .replaceFirst(/_service$/, '')
 
