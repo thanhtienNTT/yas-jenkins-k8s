@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'build' }
+    agent any
 
     options {
         timestamps()
@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_USER        = 'thanhtienntt'
+        DOCKERHUB_USER        =  'loknee1412'//'thanhtienntt'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
         ALL_SERVICES          = 'order,tax,cart'
     }

@@ -1,0 +1,36 @@
+jenkins:
+  systemMessage: "YAS Jenkins is managed by Configuration as Code."
+  numExecutors: 2
+  mode: NORMAL
+  remotingSecurity:
+    enabled: true
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin123}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    adminAddress: "admin@yas.local"
+    url: "http://localhost:${JENKINS_UI_PORT:-8080}/"
+  gitSCM:
+    globalConfigName: "yas-jenkins"
+    globalConfigEmail: "jenkins@yas.local"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "dockerhub-creds"
+              username: "${DOCKERHUB_USER:-replace_me}"
+              password: "${DOCKERHUB_TOKEN:-replace_me}"
+              description: "Docker Hub credentials used by pipeline jobs."

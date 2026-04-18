@@ -1,0 +1,46 @@
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        KUBECTL_VERSION: ${KUBECTL_VERSION:-stable}
+
+    container_name: yas_jenkins
+    restart: unless-stopped
+    user: root
+
+    ports:
+      - "${JENKINS_UI_PORT:-8080}:8080"
+      - "${JENKINS_AGENT_PORT:-50000}:50000"
+
+    environment:
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc_configs/jenkins.yaml
+      JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin123}
+      DOCKERHUB_USER: ${DOCKERHUB_USER:-}
+      DOCKERHUB_TOKEN: ${DOCKERHUB_TOKEN:-}
+      JENKINS_UI_PORT: ${JENKINS_UI_PORT:-8080}
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Xms512m -Xmx1024m"
+      MAVEN_OPTS: "-Xmx1024m"
+
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./jenkins.yaml:/var/jenkins_home/casc_configs/jenkins.yaml:ro
+      - ${DOCKER_HOST_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+      - ${KUBECONFIG_PATH:-../kubeconfig}:/var/jenkins_home/.kube/config:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/login > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+volumes:
+  jenkins_home:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${JENKINS_DATA_PATH:-../jenkins_data}

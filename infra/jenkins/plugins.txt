@@ -1,0 +1,17 @@
+configuration-as-code
+workflow-aggregator
+pipeline-stage-view
+git
+git-client
+github
+github-api
+credentials
+credentials-binding
+ssh-credentials
+matrix-auth
+job-dsl
+kubernetes-cli
+docker-workflow
+timestamper
+ws-cleanup
+parameterized-trigger
