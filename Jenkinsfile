@@ -83,8 +83,10 @@ pipeline {
                             sh "mvn -B clean package -pl ${svc} -am -DskipTests"
 
                             dir("${svc}") {
-                                sh "docker build -t ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG} ."
-                                sh "docker push ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG}"
+                                def fullImageName = "${DOCKERHUB_USER}/yas-${svc}:${IMAGE_TAG}"
+
+                                sh "docker build -t ${fullImageName} ."
+                                sh "docker push ${fullImageName}"
                             }
                         }
 
@@ -120,7 +122,7 @@ pipeline {
                 }
 
                 servicesToClean.each { svc ->
-                    sh "docker image rm -f ${DOCKERHUB_USER}/${svc}:${IMAGE_TAG} || true"
+                    sh "docker image rm -f ${DOCKERHUB_USER}/yas-${svc}:${IMAGE_TAG} || true"
                 }
             }
             cleanWs()
