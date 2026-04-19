@@ -32,9 +32,9 @@ helm upgrade --install postgres ./postgres/postgresql \
 --set password="$POSTGRESQL_PASSWORD"
 
 #Install pgadmin
-pg_admin_hostname="pgadmin.$DOMAIN" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
-helm upgrade --install pgadmin ./postgres/pgadmin \
---create-namespace --namespace postgres \
+# pg_admin_hostname="pgadmin.$DOMAIN" yq -i '.hostname=env(pg_admin_hostname)' ./postgres/pgadmin/values.yaml
+# helm upgrade --install pgadmin ./postgres/pgadmin \
+# --create-namespace --namespace postgres \
 
 #Install strimzi-kafka-operator
 helm upgrade --install kafka-operator strimzi/strimzi-kafka-operator \
