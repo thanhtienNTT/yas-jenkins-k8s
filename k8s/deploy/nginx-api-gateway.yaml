@@ -55,22 +55,6 @@ data:
         set $upstream "search.yas.svc.cluster.local";
         proxy_pass http://$upstream;
       }
-      location /payment/ {
-        set $upstream "payment.yas.svc.cluster.local";
-        proxy_pass http://$upstream;
-      }
-      location /webhook/ {
-        set $upstream "webhook.yas.svc.cluster.local";
-        proxy_pass http://$upstream;
-      }
-      location /sampledata/ {
-        set $upstream "sampledata.yas.svc.cluster.local";
-        proxy_pass http://$upstream;
-      }
-      location /recommendation/ {
-        set $upstream "recommendation.yas.svc.cluster.local";
-        proxy_pass http://$upstream;
-      }
     }
 ---
 apiVersion: apps/v1
@@ -112,3 +96,85 @@ spec:
   ports:
     - port: 80
       targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-api-gateway
+  namespace: yas
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.yas.local.com
+      http:
+        paths:
+          - path: /cart
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /customer
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /media
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /product
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /rating
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /order
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /location
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /inventory
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /tax
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
+          - path: /search
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx
+                port:
+                  number: 80
