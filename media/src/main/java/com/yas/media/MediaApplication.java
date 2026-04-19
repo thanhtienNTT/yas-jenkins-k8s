@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication(scanBasePackages = {"com.yas.media", "com.yas.commonlibrary"})
 @EnableConfigurationProperties({YasConfig.class, CorsConfig.class})
 public class MediaApplication {
-
+    // Testing jenkinsfile to ensure the remaining CI Pipeline after project 1
     public static void main(String[] args) {
         SpringApplication.run(MediaApplication.class, args);
     }

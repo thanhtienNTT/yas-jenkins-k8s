@@ -7,9 +7,9 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_USER        = 'thanhtienntt'
+        DOCKERHUB_USER        = 'akiratomori'
         DOCKER_CREDENTIALS_ID = 'dockerhub-creds'
-        ALL_SERVICES          = 'order,tax,cart'
+        ALL_SERVICES          = 'order,tax,cart,media'
     }
 
     stages {
