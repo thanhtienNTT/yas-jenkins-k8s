@@ -1,6 +1,6 @@
 backend:
   image:
-    repository: ghcr.io/nashtech-garage/yas-rating
+    repository: akiratomori/yas-rating
     tag: latest
   replicaCount: 1
   resources:
