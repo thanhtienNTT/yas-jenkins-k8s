@@ -68,6 +68,7 @@ pipeline {
         GITOPS_DIR                  = 'gitops-yas'
         GITOPS_COMMIT_USER          = 'jenkins-bot'
         GITOPS_COMMIT_EMAIL         = 'jenkins@local'
+        
     }
 
     stages {
