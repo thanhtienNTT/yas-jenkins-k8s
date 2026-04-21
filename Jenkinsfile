@@ -1,5 +1,6 @@
 /*
  * Jenkinsfile: CI (Build/Push) + CD GitOps (ArgoCD Integration)
+ * Tối ưu hóa: Dual Tagging cho DEV và Image Retagging cho STAGING
  */
 
 def writeGitOpsServiceOverride(String environmentName, String service, String tag) {
@@ -45,6 +46,22 @@ def updateGitOpsRepo(String envName, String imageTag) {
     }
 }
 
+// HÀM: Kéo image từ Docker Hub, đổi tag và đẩy lên lại
+def retagAndPushBackendImage(String service, String sourceTag, String targetTag, String dockerNamespace, String dockerCredentialsId) {
+    withCredentials([usernamePassword(credentialsId: dockerCredentialsId, usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_TOKEN')]) {
+        def sourceImage = "${dockerNamespace}/yas-${service}:${sourceTag}"
+        def targetImage = "${dockerNamespace}/yas-${service}:${targetTag}"
+        sh """
+            echo \"${DOCKERHUB_TOKEN}\" | docker login -u \"${DOCKERHUB_USERNAME}\" --password-stdin
+            docker pull ${sourceImage}
+            docker tag ${sourceImage} ${targetImage}
+            docker push ${targetImage}
+            docker logout
+        """
+        echo ">>> Đã đổi tên thành công: ${sourceImage} -> ${targetImage}"
+    }
+}
+
 pipeline {
     agent { label 'build' }
 
@@ -79,18 +96,19 @@ pipeline {
                         script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true
                     ).trim()
 
+                    // Lấy mã hash 8 ký tự
                     env.GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-
-                    // Sửa lại logic nhận diện Tag chặt chẽ hơn
                     env.IS_MAIN = (env.BRANCH_NAME_RESOLVED == 'main' || env.BRANCH_NAME_RESOLVED.endsWith('/main')).toString()
                     
-                    // Trong Multibranch, khi chạy từ Tag, env.TAG_NAME sẽ có giá trị
                     if (env.TAG_NAME) {
+                        // Kịch bản 1: Push Tag (Cho Staging)
                         env.IS_RELEASE = "true"
                         env.IMAGE_TAG = env.TAG_NAME
                     } else {
+                        // Kịch bản 2: Push Branch (Cho Dev hoặc Developer)
                         env.IS_RELEASE = "false"
-                        env.IMAGE_TAG = env.IS_MAIN.toBoolean() ? 'latest' : env.GIT_SHA
+                        // LUÔN LUÔN dùng mã hash để build image ban đầu, đảm bảo tính tracking
+                        env.IMAGE_TAG = env.GIT_SHA
                     }
 
                     echo "SCOPE: IS_MAIN=${env.IS_MAIN}, IS_RELEASE=${env.IS_RELEASE}, TAG=${env.IMAGE_TAG}"
@@ -99,12 +117,14 @@ pipeline {
         }
 
         stage('Build and Push Services') {
+            // Bỏ qua stage này nếu đang chạy cho Release (Staging)
+            when { expression { return env.IS_RELEASE.toBoolean() == false } }
             steps {
                 script {
                     def allServices = env.ALL_SERVICES.split(',') as List
                     def servicesToBuild = []
 
-                    if (env.IS_MAIN.toBoolean() || env.IS_RELEASE.toBoolean()) {
+                    if (env.IS_MAIN.toBoolean()) {
                         servicesToBuild = allServices
                     } else {
                         def branchService = env.BRANCH_NAME_RESOLVED.replaceFirst(/^dev_/, '').replaceFirst(/_service$/, '')
@@ -120,6 +140,7 @@ pipeline {
                         servicesToBuild.each { svc ->
                             echo "===== BUILDING: ${svc} ====="
                             sh "mvn -B clean package -pl ${svc} -am -DskipTests"
+                            // Build với tag là env.GIT_SHA
                             def fullImageName = "${DOCKERHUB_USER}/yas-${svc}:${IMAGE_TAG}"
                             dir("${svc}") {
                                 sh "docker build -t ${fullImageName} ."
@@ -133,26 +154,37 @@ pipeline {
         }
 
         stage('CD Dev GitOps Update') {
-            when { 
-                // Có thể đổi thành: branch 'main' nếu muốn giống file tham chiếu
-                expression { return env.IS_MAIN.toBoolean() } 
-            }
+            when { expression { return env.IS_MAIN.toBoolean() } }
             steps {
                 script {
-                    echo ">>> Đang cập nhật môi trường DEV với tag: ${env.IMAGE_TAG}"
+                    echo ">>> Bắt đầu Dual Tagging cho DEV..."
+                    def allServices = env.ALL_SERVICES.split(',') as List
+                    
+                    // 1. Tạo thêm tag 'main' từ mã hash vừa build và đẩy lên Docker Hub
+                    allServices.each { String service ->
+                        retagAndPushBackendImage(service, env.IMAGE_TAG, 'main', env.DOCKERHUB_USER, env.DOCKER_CREDENTIALS_ID)
+                    }
+
+                    // 2. Cập nhật GitOps cho Dev bằng mã hash để ép ArgoCD tự động Sync
+                    echo ">>> Đang cập nhật môi trường DEV ArgoCD với tag: ${env.IMAGE_TAG}"
                     updateGitOpsRepo('dev', env.IMAGE_TAG)
                 }
             }
         }
 
         stage('CD Staging GitOps Update') {
-            when { 
-                // Sử dụng cú pháp native chuẩn nhất cho Tag
-                tag "v*" 
-            }
+            when { tag "v*" }
             steps {
                 script {
-                    echo ">>> Đang cập nhật môi trường STAGING với tag: ${env.IMAGE_TAG}"
+                    echo ">>> Bắt đầu quy trình Retagging cho STAGING..."
+                    def allServices = env.ALL_SERVICES.split(',') as List
+                    
+                    // Kéo tag 'main' (vừa được tạo ở bước Dev) về và đổi thành vX.X.X
+                    allServices.each { String service ->
+                        retagAndPushBackendImage(service, 'main', env.IMAGE_TAG, env.DOCKERHUB_USER, env.DOCKER_CREDENTIALS_ID)
+                    }
+
+                    echo ">>> Đang cập nhật môi trường STAGING GitOps với tag: ${env.IMAGE_TAG}"
                     updateGitOpsRepo('staging', env.IMAGE_TAG)
                 }
             }
