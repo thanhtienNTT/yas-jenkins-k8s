@@ -16,7 +16,7 @@
 ## Local installation steps
 - Require a minikube node minimum 16G memory and 40G disk space and run on Ubuntu operator
 ```shell
-minikube start --disk-size='40000mb' --memory='16g'
+minikube start  --driver=docker --disk-size='40000mb' --memory='16g'
 ```
 - Enable ingress addon
 ```shell

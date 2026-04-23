@@ -68,7 +68,7 @@ helm version
 ## 6: Start Minikube Cluster
 
 ```bash
-minikube start --driver=docker --cpus=4 --memory=12288 --disk-size=40g
+minikube start --driver=docker --cpus=4 --disk-size='40000mb' --memory='16g'
 minikube addons enable ingress
 kubectl get nodes -o wide
 kubectl get pods -A
@@ -85,9 +85,9 @@ cd k8s/deploy
 Run these scripts in order:
 
 ```bash
+./setup-cluster.sh
 ./setup-keycloak.sh
 ./setup-redis.sh
-./setup-cluster.sh
 ./deploy-yas-applications.sh
 ```
 
@@ -121,17 +121,6 @@ minikube stop
 minikube start --driver=docker --cpus=4 --memory=12288 --disk-size=40g
 ```
 
-- Check Docker daemon:
-
-```bash
-systemctl status docker
-```
-
-- View events in the YAS namespace:
-
-```bash
-kubectl get events -n yas --sort-by=.lastTimestamp
-```
 
 - Fix in-cluster DNS for `identity.yas.local.com` (CoreDNS static host):
 
